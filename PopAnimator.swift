@@ -35,28 +35,44 @@ import UIKit
 class PopAnimator: NSObject, UIViewControllerAnimatedTransitioning {
     let transition = 1.0
     var originalFrame = CGRect.zero
+    var presenting = true
     func transitionDuration(using transitionContext: UIViewControllerContextTransitioning?) -> TimeInterval {
         return transition
     }
     
     func animateTransition(using transitionContext: UIViewControllerContextTransitioning) {
         let containerView = transitionContext.containerView
-        guard let toView = transitionContext.view(forKey: .to) else {
-            return
+        guard let toView = transitionContext.view(forKey: .to) else { return }
+        guard let animatingView = presenting ? toView : transitionContext.view(forKey: .from) else { return }
+        
+        let initalFrame = presenting ? originalFrame : animatingView.frame
+        let finalFrame = presenting ? animatingView.frame : originalFrame
+        
+        let scaleFactorX = presenting ? initalFrame.width / finalFrame.width : finalFrame.width / initalFrame.width
+        let scaleFactorY = presenting ? initalFrame.height / finalFrame.height : finalFrame.height / initalFrame.height
+        let scaleFactor = CGAffineTransform(scaleX: scaleFactorX, y: scaleFactorY)
+        
+        if(presenting) {
+            animatingView.transform = scaleFactor
+            animatingView.center = CGPoint(
+                x: initalFrame.midX,
+                y: initalFrame.midY
+            )
         }
         
-        let initalFrame = originalFrame
-        let finalFrame = toView.frame
-        toView.transform = CGAffineTransform(scaleX: initalFrame.width/finalFrame.width, y: initalFrame.height / finalFrame.height)
-        toView.center = CGPoint(x: initalFrame.midX, y: initalFrame.midY)
+        animatingView.layer.cornerRadius = presenting ? 20/scaleFactorX : 0.0
+        animatingView.clipsToBounds = true
         containerView.addSubview(toView)
-        UIView.animate(withDuration: 1,
-                       delay: 0.0,
-                       usingSpringWithDamping: 0.8,
-                       initialSpringVelocity: 0.0,
-                       animations: {
-                        toView.transform = .identity
-                        toView.center = CGPoint(x: finalFrame.midX, y: finalFrame.midY)
+        containerView.bringSubviewToFront(animatingView)
+        UIView.animate(
+            withDuration: 1,
+            delay: 0.0,
+            usingSpringWithDamping: 0.5,
+            initialSpringVelocity: 0.0,
+            animations: {
+                animatingView.layer.cornerRadius = self.presenting ? 0.0: 20/scaleFactorX
+                animatingView.transform = self.presenting ? .identity : scaleFactor
+                animatingView.center = CGPoint(x: finalFrame.midX, y: finalFrame.midY)
         }) { _ in
             transitionContext.completeTransition(true)
         }
